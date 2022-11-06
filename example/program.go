@@ -1,7 +1,3 @@
-# HOW TO USE
-Get the latest version of this module running `go get -d github.com/jaavier/dotenv` in your project directory
-
-```golang
 package example
 
 import (
@@ -18,4 +14,3 @@ func main() {
 		fmt.Println(os.Getenv("YOUR_SECRET_KEY_HERE"))
 	}
 }
-```
