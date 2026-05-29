@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or discussion
+    url: https://github.com/jaavier/dotenv/discussions
+    about: Ask questions and discuss usage with the community.
+  - name: Security vulnerability
+    url: https://github.com/jaavier/dotenv/security/advisories/new
+    about: Privately report a security issue (do not open a public issue).

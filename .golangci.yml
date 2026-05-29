@@ -1,0 +1,24 @@
+version: "2"
+
+linters:
+  enable:
+    - misspell
+    - unconvert
+    - revive
+  settings:
+    misspell:
+      locale: US
+  exclusions:
+    rules:
+      # Setting/unsetting env vars and cleanup in tests/examples is best-effort.
+      - path: (_test\.go|example/program\.go)
+        linters:
+          - errcheck
+      # QF1001 (apply De Morgan's law) is a style quickfix, not a correctness issue.
+      - text: "QF1001"
+        linters:
+          - staticcheck
+
+formatters:
+  enable:
+    - gofmt
