@@ -1,6 +1,20 @@
-# dotenv
+# dotenv — lightweight & secure `.env` loader for Go
 
-A minimalist, secure, and robust Go library for loading environment variables from `.env` files. Built with clean architecture principles, focusing on doing one thing with excellence.
+> A tiny, **zero-dependency**, security-first Go library to load environment
+> variables from `.env` files. A modern, actively maintained alternative to
+> [godotenv](https://github.com/joho/godotenv).
+
+[![Go Reference](https://pkg.go.dev/badge/github.com/jaavier/dotenv.svg)](https://pkg.go.dev/github.com/jaavier/dotenv)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jaavier/dotenv)](https://goreportcard.com/report/github.com/jaavier/dotenv)
+[![CI](https://github.com/jaavier/dotenv/actions/workflows/ci.yml/badge.svg)](https://github.com/jaavier/dotenv/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/jaavier/dotenv/branch/main/graph/badge.svg)](https://codecov.io/gh/jaavier/dotenv)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/jaavier/dotenv)](go.mod)
+[![Release](https://img.shields.io/github/v/release/jaavier/dotenv?sort=semver)](https://github.com/jaavier/dotenv/releases)
+[![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](go.mod)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Keywords: golang dotenv, load `.env` file in Go, environment variables, 12-factor
+config, godotenv alternative, secure env loader.
 
 [Español](#español) | [English](#english)
 
@@ -16,6 +30,41 @@ A minimalist, secure, and robust Go library for loading environment variables fr
 - **Correct parsing**: POSIX-ish quoting — double quotes expand escapes, single quotes are literal, unquoted values support inline `# comments`, optional `export` prefix, multi-line quoted values
 - **Side-effect free option**: `Parse`/`ParseBytes` return a `map[string]string` without ever touching the global environment — ideal for testing
 - **Hardened**: Configurable file-size limit to prevent memory exhaustion; no `bufio.Scanner` 64KB line cap
+
+### Why dotenv? (vs godotenv)
+
+[godotenv](https://github.com/joho/godotenv) is great and battle-tested, but it
+has been declared **feature-complete** and no longer accepts new functionality.
+`dotenv` is a small, modern, actively-maintained alternative with safer
+defaults.
+
+| | `jaavier/dotenv` | `joho/godotenv` |
+| --- | --- | --- |
+| Dependencies | **0** (stdlib only) | 0 |
+| Overrides existing env by default | **No** (safe; `Overload` to opt in) | No (`Load`) / Yes (`Overload`) |
+| Atomic apply (all-or-nothing per file) | **Yes** | No |
+| Side-effect-free `Parse` / `ParseBytes` | **Yes** | `Read` returns a map |
+| Inline `# comments` (unquoted) | **Yes** | Yes |
+| Single-quote literal vs double-quote escapes | **Yes** | Yes |
+| Multi-line quoted values (PEM keys) | **Yes** | Yes |
+| Configurable max file size (DoS guard) | **Yes** | No |
+| Long lines > 64 KB | **Yes** | Limited by Scanner |
+| Variable expansion `${VAR}` | No (by design — no injection surface) | Yes |
+| Actively maintained | **Yes** | Feature-complete |
+
+> `dotenv` deliberately omits `${VAR}` interpolation to keep the attack surface
+> minimal. If you need interpolation, expand values yourself after `Parse`.
+
+### Performance
+
+Parsing a representative `.env` (15 keys, comments, quotes, escapes) on a
+commodity CPU:
+
+```
+BenchmarkParse-4         217534    ~4.6 µs/op    77 MB/s    3416 B/op    24 allocs/op
+```
+
+Run it yourself: `make bench` (or `go test -bench=. -benchmem ./...`).
 
 ### Installation
 
@@ -220,6 +269,37 @@ const DefaultMaxFileSize = 1 << 20 // 1 MiB
 - `ErrEmptyKey` - Empty key name
 - `ErrPermissionDenied` - No permission to read file
 - `ErrFileTooLarge` - File exceeds the maximum size
+
+### FAQ
+
+**How do I load a `.env` file in Go?**
+`go get github.com/jaavier/dotenv`, then call `dotenv.Load()` at startup and read
+values with `os.Getenv` (or `dotenv.Get` / `GetOrDefault`).
+
+**Does it override my existing environment variables?**
+No. `Load` only fills in variables that are not already set — the real
+environment always wins. Use `dotenv.Overload(...)` if you want the file to win.
+
+**Is it a drop-in replacement for godotenv?**
+The API differs, but migration is trivial: `godotenv.Load` → `dotenv.Load`,
+`godotenv.Overload` → `dotenv.Overload`, `godotenv.Read` → `dotenv.Parse`.
+The main intentional difference is that `${VAR}` interpolation is not performed.
+
+**Does it support variable expansion like `${OTHER}`?**
+No, by design — this avoids an injection surface. Expand values yourself after
+calling `Parse` if you need it.
+
+**Can I parse a string or stream without touching the environment?**
+Yes: `dotenv.Parse(io.Reader)` and `dotenv.ParseBytes([]byte)` return a map and
+never mutate global state.
+
+**Which Go versions are supported?**
+Go 1.17 and newer (tested on Linux, macOS and Windows in CI).
+
+---
+
+If this package is useful to you, please consider giving it a ⭐ on
+[GitHub](https://github.com/jaavier/dotenv) — it genuinely helps others discover it.
 
 ---
 

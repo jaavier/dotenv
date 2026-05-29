@@ -1,3 +1,5 @@
+// Command example demonstrates how to load and read environment variables
+// with the dotenv package.
 package main
 
 import (

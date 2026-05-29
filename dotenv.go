@@ -1,9 +1,9 @@
-// Package dotenv provides a minimalist, secure, and robust solution for loading
-// environment variables from .env files.
+// Package dotenv is a lightweight, dependency-free, secure loader for .env
+// files in Go — a modern, actively maintained alternative to godotenv.
 //
 // The package focuses on doing one thing with excellence: safely loading
-// environment variables from files. It is dependency-free (standard library
-// only), fits in a single file, and is secure by default.
+// environment variables from files. It uses only the standard library, fits in
+// a single file, and is secure by default.
 //
 // # Secure by default
 //
@@ -195,7 +195,7 @@ func loadFile(filename string, opts *Options) (map[string]string, error) {
 		}
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	return parseReader(file, maxSize)
 }
