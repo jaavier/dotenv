@@ -60,6 +60,6 @@ jobs:
           if [ -n "$unformatted" ]; then
             echo "These files are not gofmt-ed:"; echo "$unformatted"; exit 1
           fi
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v8
         with:
           version: v2.5.0
