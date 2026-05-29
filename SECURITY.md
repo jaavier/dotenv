@@ -6,7 +6,8 @@ The latest released minor version receives security fixes.
 
 | Version | Supported |
 | ------- | --------- |
-| 1.x     | ✅        |
+| 2.x     | ✅        |
+| 1.x     | ⚠️ best-effort |
 
 ## Reporting a vulnerability
 

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/jaavier/dotenv"
+	"github.com/jaavier/dotenv/v2"
 )
 
 // Load reads a .env file and populates the process environment without

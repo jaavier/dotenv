@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jaavier/dotenv"
+	"github.com/jaavier/dotenv/v2"
 )
 
 // sampleEnv is a representative .env payload exercising comments, quotes,

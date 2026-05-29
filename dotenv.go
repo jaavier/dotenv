@@ -14,7 +14,7 @@
 //
 // Basic usage:
 //
-//	import "github.com/jaavier/dotenv"
+//	import "github.com/jaavier/dotenv/v2"
 //
 //	func main() {
 //	    // Load default .env file without overriding existing env vars.

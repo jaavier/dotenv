@@ -4,8 +4,8 @@
 > variables from `.env` files. A modern, actively maintained alternative to
 > [godotenv](https://github.com/joho/godotenv).
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/jaavier/dotenv.svg)](https://pkg.go.dev/github.com/jaavier/dotenv)
-[![Go Report Card](https://goreportcard.com/badge/github.com/jaavier/dotenv)](https://goreportcard.com/report/github.com/jaavier/dotenv)
+[![Go Reference](https://pkg.go.dev/badge/github.com/jaavier/dotenv/v2.svg)](https://pkg.go.dev/github.com/jaavier/dotenv/v2)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jaavier/dotenv/v2)](https://goreportcard.com/report/github.com/jaavier/dotenv/v2)
 [![CI](https://github.com/jaavier/dotenv/actions/workflows/ci.yml/badge.svg)](https://github.com/jaavier/dotenv/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/jaavier/dotenv/branch/main/graph/badge.svg)](https://codecov.io/gh/jaavier/dotenv)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/jaavier/dotenv)](go.mod)
@@ -69,7 +69,7 @@ Run it yourself: `make bench` (or `go test -bench=. -benchmem ./...`).
 ### Installation
 
 ```bash
-go get github.com/jaavier/dotenv
+go get github.com/jaavier/dotenv/v2
 ```
 
 ### Quick Start
@@ -91,7 +91,7 @@ import (
     "log"
     "os"
     
-    "github.com/jaavier/dotenv"
+    "github.com/jaavier/dotenv/v2"
 )
 
 func main() {
@@ -273,7 +273,7 @@ const DefaultMaxFileSize = 1 << 20 // 1 MiB
 ### FAQ
 
 **How do I load a `.env` file in Go?**
-`go get github.com/jaavier/dotenv`, then call `dotenv.Load()` at startup and read
+`go get github.com/jaavier/dotenv/v2`, then call `dotenv.Load()` at startup and read
 values with `os.Getenv` (or `dotenv.Get` / `GetOrDefault`).
 
 **Does it override my existing environment variables?**
@@ -292,6 +292,13 @@ calling `Parse` if you need it.
 **Can I parse a string or stream without touching the environment?**
 Yes: `dotenv.Parse(io.Reader)` and `dotenv.ParseBytes([]byte)` return a map and
 never mutate global state.
+
+**How do I upgrade from v1?**
+Update the import path to `github.com/jaavier/dotenv/v2` and run
+`go get github.com/jaavier/dotenv/v2`. The package name and all function
+signatures are unchanged; the only behavior change is that `Load` no longer
+overrides existing environment variables by default (use `Overload` for the old
+behavior).
 
 **Which Go versions are supported?**
 Go 1.17 and newer (tested on Linux, macOS and Windows in CI).
@@ -317,7 +324,7 @@ If this package is useful to you, please consider giving it a ⭐ on
 ### Instalación
 
 ```bash
-go get github.com/jaavier/dotenv
+go get github.com/jaavier/dotenv/v2
 ```
 
 ### Inicio Rápido
@@ -339,7 +346,7 @@ import (
     "log"
     "os"
     
-    "github.com/jaavier/dotenv"
+    "github.com/jaavier/dotenv/v2"
 )
 
 func main() {

@@ -7,7 +7,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/jaavier/dotenv"
+	"github.com/jaavier/dotenv/v2"
 )
 
 func main() {

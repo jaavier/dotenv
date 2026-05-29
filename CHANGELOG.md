@@ -5,7 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - Unreleased
+
+This is a major release. The module path is now
+`github.com/jaavier/dotenv/v2` — update your imports accordingly:
+
+```go
+import "github.com/jaavier/dotenv/v2"
+```
 
 ### Added
 
@@ -22,7 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Behavior change (security):** `Load` and `LoadWithOptions(nil, ...)` no
+- **BREAKING (module path):** the module is now `github.com/jaavier/dotenv/v2`.
+- **BREAKING (security default):** `Load` and `LoadWithOptions(nil, ...)` no
   longer override variables that already exist in the process environment.
   Following the 12-factor methodology, the real environment is authoritative
   and a `.env` file only fills in what is missing. Use `Overload` (or
@@ -48,6 +56,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial `.env` loader with `Load` / `LoadWithOptions`.
 
-[Unreleased]: https://github.com/jaavier/dotenv/compare/v1.1.0...HEAD
+[2.0.0]: https://github.com/jaavier/dotenv/compare/v1.1.0...v2.0.0
 [1.1.0]: https://github.com/jaavier/dotenv/releases/tag/v1.1.0
 [1.0.0]: https://github.com/jaavier/dotenv/releases/tag/v1.0.0
