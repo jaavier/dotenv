@@ -10,12 +10,12 @@ A minimalist, secure, and robust Go library for loading environment variables fr
 
 ### Features
 
-- **Minimalist**: Focus on loading environment variables safely - nothing more, nothing less
-- **Secure**: File size limits, path sanitization, and permission checks
-- **Robust**: Comprehensive error handling with specific error types
-- **Clean**: Professional code structure following clean architecture principles
-- **Flexible**: Support for multiple files and configuration options
-- **Safe**: Input validation and secure parsing
+- **Minimalist**: Zero dependencies (standard library only), single file. Loads environment variables safely - nothing more, nothing less
+- **Secure by default**: Following 12-factor, the real process environment always wins — a `.env` file never overrides existing variables unless you explicitly ask it to (`Overload`)
+- **Robust**: Comprehensive error handling with specific error types; files are applied atomically (a malformed file never leaves a half-applied environment)
+- **Correct parsing**: POSIX-ish quoting — double quotes expand escapes, single quotes are literal, unquoted values support inline `# comments`, optional `export` prefix, multi-line quoted values
+- **Side-effect free option**: `Parse`/`ParseBytes` return a `map[string]string` without ever touching the global environment — ideal for testing
+- **Hardened**: Configurable file-size limit to prevent memory exhaustion; no `bufio.Scanner` 64KB line cap
 
 ### Installation
 
@@ -46,7 +46,8 @@ import (
 )
 
 func main() {
-    // Load default .env file
+    // Load default .env file. Existing environment variables are NOT
+    // overridden; the file only fills in what is missing.
     if err := dotenv.Load(); err != nil {
         log.Printf("Warning: %v", err)
     }
@@ -57,6 +58,11 @@ func main() {
 }
 ```
 
+> **Secure default:** `Load` never overrides variables that already exist in
+> the process environment. This matches `godotenv`/12-factor: the runtime is the
+> source of truth and a stale or accidental `.env` cannot clobber injected
+> secrets. Use `Overload` when you explicitly want the file to win.
+
 ### Advanced Usage
 
 #### Load Multiple Files
@@ -66,12 +72,29 @@ func main() {
 err := dotenv.Load(".env.local", ".env")
 ```
 
+#### Override Existing Variables
+
+```go
+// Overload lets file values overwrite existing env vars (opt-in).
+err := dotenv.Overload(".env")
+```
+
+#### Parse Without Side Effects
+
+```go
+// Parse returns a map and never mutates the global environment.
+vars, err := dotenv.Parse(reader)        // any io.Reader
+vars, err = dotenv.ParseBytes(data)      // or raw bytes
+fmt.Println(vars["API_KEY"])
+```
+
 #### Custom Options
 
 ```go
 opts := &dotenv.Options{
-    Override: false,  // Don't override existing env vars
-    Required: true,   // File must exist
+    Override:    false,        // default: do not override existing env vars
+    Required:    true,         // file must exist
+    MaxFileSize: 64 * 1024,    // optional cap in bytes (0 => DefaultMaxFileSize)
 }
 
 err := dotenv.LoadWithOptions(opts, ".env.production")
@@ -100,21 +123,30 @@ dbHost := dotenv.GetOrPanic("DB_HOST")
 ### Supported Formats
 
 ```env
-# Comments are supported
+# Full-line comments are supported
 SIMPLE_KEY=value
 
-# Quoted values
-QUOTED_VALUE="value with spaces"
-SINGLE_QUOTED='single quotes also work'
+# Inline comments (unquoted values only; '#' must follow whitespace)
+PORT=8080            # the http port
+PASSWORD=p#ss        # '#' kept: not preceded by whitespace
 
-# Empty values
-EMPTY_VALUE=
+# Optional leading 'export' (so the file can also be `source`d by a shell)
+export API_KEY=secret
 
-# Special characters (escaped)
+# Double quotes: escape sequences (\n \r \t \\ \") are expanded
 MULTILINE="Line 1\nLine 2"
 WITH_TAB="Column1\tColumn2"
 
-# Trim spaces
+# Single quotes: fully literal, no escapes, no comment stripping
+LITERAL='value with \n kept as-is and a # too'
+
+# Multi-line quoted values (e.g. PEM keys)
+PRIVATE_KEY="-----BEGIN KEY-----
+line2
+-----END KEY-----"
+
+# Empty values, and surrounding whitespace is trimmed on unquoted values
+EMPTY_VALUE=
 TRIMMED_VALUE=  value with spaces trimmed  
 ```
 
@@ -133,6 +165,8 @@ if err := dotenv.Load(".env"); err != nil {
         // Invalid line format
     case errors.Is(err, dotenv.ErrEmptyKey):
         // Empty key found
+    case errors.Is(err, dotenv.ErrFileTooLarge):
+        // File exceeds the configured size limit
     default:
         // Other error
     }
@@ -141,20 +175,26 @@ if err := dotenv.Load(".env"); err != nil {
 
 ### Security Features
 
-- **File size limit**: Maximum 1MB to prevent memory exhaustion
-- **Path sanitization**: Prevents directory traversal attacks
-- **Permission checks**: Validates file permissions before reading
-- **Key validation**: Only allows valid environment variable names
-- **Safe parsing**: Handles malformed input gracefully
+- **No-clobber default**: `.env` never overrides existing process env vars (12-factor); overriding is opt-in via `Overload`
+- **Atomic apply**: each file is fully parsed before any variable is set, so a parse error never leaves a partially-applied environment
+- **Side-effect-free parsing**: `Parse`/`ParseBytes` never mutate the global environment
+- **Resource limits**: configurable file-size cap (default 1 MiB), enforced on the bytes actually read (safe for pipes/special files), with no 64KB line cap
+- **No code execution**: command substitution (`$(...)`) and shell evaluation are never performed
+- **Key validation**: only valid environment variable names (`[A-Za-z_][A-Za-z0-9_]*`) are accepted
 
 ### API Reference
 
 #### Functions
 
 **Loading Functions:**
-- `Load(filenames ...string) error` - Load one or more .env files
+- `Load(filenames ...string) error` - Load one or more .env files without overriding existing env vars
+- `Overload(filenames ...string) error` - Load files, letting them override existing env vars
 - `LoadWithOptions(opts *Options, filenames ...string) error` - Load with custom options
 - `MustLoad(filenames ...string)` - Load files or panic
+
+**Parsing (no side effects):**
+- `Parse(r io.Reader) (map[string]string, error)` - Parse into a map without touching the environment
+- `ParseBytes(data []byte) (map[string]string, error)` - Convenience wrapper for in-memory data
 
 **Getting Variables:**
 - `Get(key string) string` - Get environment variable value (alias for os.Getenv)
@@ -165,17 +205,21 @@ if err := dotenv.Load(".env"); err != nil {
 
 ```go
 type Options struct {
-    Override bool  // Override existing environment variables
-    Required bool  // File must exist (return error if not found)
+    Override    bool  // override existing environment variables (default false)
+    Required    bool  // file must exist (return error if not found)
+    MaxFileSize int64 // max bytes to read; <= 0 uses DefaultMaxFileSize
 }
+
+const DefaultMaxFileSize = 1 << 20 // 1 MiB
 ```
 
 #### Errors
 
 - `ErrFileNotFound` - File does not exist
-- `ErrInvalidFormat` - Invalid line format (missing =)
+- `ErrInvalidFormat` - Invalid line format (missing `=`, unterminated quote, or garbage after a quote)
 - `ErrEmptyKey` - Empty key name
 - `ErrPermissionDenied` - No permission to read file
+- `ErrFileTooLarge` - File exceeds the maximum size
 
 ---
 
@@ -183,12 +227,12 @@ type Options struct {
 
 ### Características
 
-- **Minimalista**: Enfocado en cargar variables de entorno de manera segura - nada más, nada menos
-- **Seguro**: Límites de tamaño de archivo, sanitización de rutas y verificación de permisos
-- **Robusto**: Manejo completo de errores con tipos de error específicos
-- **Limpio**: Estructura de código profesional siguiendo principios de arquitectura limpia
-- **Flexible**: Soporte para múltiples archivos y opciones de configuración
-- **Confiable**: Validación de entrada y análisis seguro
+- **Minimalista**: Cero dependencias (solo librería estándar), un único archivo. Carga variables de entorno de manera segura - nada más, nada menos
+- **Seguro por defecto**: Siguiendo 12-factor, el entorno real del proceso siempre gana — un archivo `.env` nunca sobrescribe variables existentes a menos que lo pidas explícitamente (`Overload`)
+- **Robusto**: Manejo completo de errores con tipos específicos; los archivos se aplican de forma atómica (un archivo malformado nunca deja el entorno aplicado a medias)
+- **Análisis correcto**: Comillas estilo POSIX — las comillas dobles expanden escapes, las simples son literales, los valores sin comillas soportan comentarios `# en línea`, prefijo `export` opcional y valores multilínea entre comillas
+- **Opción sin efectos secundarios**: `Parse`/`ParseBytes` devuelven un `map[string]string` sin tocar nunca el entorno global — ideal para tests
+- **Endurecido**: Límite de tamaño de archivo configurable para prevenir agotamiento de memoria; sin el límite de 64KB por línea de `bufio.Scanner`
 
 ### Instalación
 
@@ -219,7 +263,8 @@ import (
 )
 
 func main() {
-    // Cargar archivo .env por defecto
+    // Cargar archivo .env por defecto. Las variables de entorno existentes
+    // NO se sobrescriben; el archivo solo rellena lo que falta.
     if err := dotenv.Load(); err != nil {
         log.Printf("Advertencia: %v", err)
     }
@@ -230,6 +275,11 @@ func main() {
 }
 ```
 
+> **Default seguro:** `Load` nunca sobrescribe variables que ya existen en el
+> entorno del proceso. Esto coincide con `godotenv`/12-factor: el runtime es la
+> fuente de verdad y un `.env` accidental o desactualizado no puede pisar
+> secretos inyectados. Usa `Overload` cuando quieras que el archivo gane.
+
 ### Uso Avanzado
 
 #### Cargar Múltiples Archivos
@@ -239,12 +289,29 @@ func main() {
 err := dotenv.Load(".env.local", ".env")
 ```
 
+#### Sobrescribir Variables Existentes
+
+```go
+// Overload permite que los valores del archivo pisen las variables existentes.
+err := dotenv.Overload(".env")
+```
+
+#### Analizar Sin Efectos Secundarios
+
+```go
+// Parse devuelve un map y nunca muta el entorno global.
+vars, err := dotenv.Parse(reader)        // cualquier io.Reader
+vars, err = dotenv.ParseBytes(data)      // o bytes en crudo
+fmt.Println(vars["API_KEY"])
+```
+
 #### Opciones Personalizadas
 
 ```go
 opts := &dotenv.Options{
-    Override: false,  // No sobrescribir variables existentes
-    Required: true,   // El archivo debe existir
+    Override:    false,        // por defecto: no sobrescribir variables existentes
+    Required:    true,         // el archivo debe existir
+    MaxFileSize: 64 * 1024,    // límite opcional en bytes (0 => DefaultMaxFileSize)
 }
 
 err := dotenv.LoadWithOptions(opts, ".env.production")
@@ -273,21 +340,30 @@ dbHost := dotenv.GetOrPanic("DB_HOST")
 ### Formatos Soportados
 
 ```env
-# Los comentarios son soportados
+# Comentarios de línea completa soportados
 CLAVE_SIMPLE=valor
 
-# Valores con comillas
-VALOR_CON_COMILLAS="valor con espacios"
-COMILLAS_SIMPLES='las comillas simples también funcionan'
+# Comentarios en línea (solo valores sin comillas; '#' debe seguir a un espacio)
+PUERTO=8080            # el puerto http
+PASSWORD=p#ss          # '#' conservado: no va precedido de espacio
 
-# Valores vacíos
-VALOR_VACIO=
+# Prefijo 'export' opcional (para que el archivo también pueda `source`arse)
+export API_KEY=secreto
 
-# Caracteres especiales (escapados)
+# Comillas dobles: se expanden los escapes (\n \r \t \\ \")
 MULTILINEA="Línea 1\nLínea 2"
 CON_TAB="Columna1\tColumna2"
 
-# Eliminar espacios
+# Comillas simples: totalmente literal, sin escapes ni comentarios
+LITERAL='valor con \n tal cual y un # también'
+
+# Valores multilínea entre comillas (p. ej. claves PEM)
+PRIVATE_KEY="-----BEGIN KEY-----
+line2
+-----END KEY-----"
+
+# Valores vacíos; los espacios alrededor se recortan en valores sin comillas
+VALOR_VACIO=
 VALOR_LIMPIO=  valor con espacios eliminados  
 ```
 
@@ -306,6 +382,8 @@ if err := dotenv.Load(".env"); err != nil {
         // Formato de línea inválido
     case errors.Is(err, dotenv.ErrEmptyKey):
         // Se encontró una clave vacía
+    case errors.Is(err, dotenv.ErrFileTooLarge):
+        // El archivo excede el límite de tamaño configurado
     default:
         // Otro error
     }
@@ -314,20 +392,26 @@ if err := dotenv.Load(".env"); err != nil {
 
 ### Características de Seguridad
 
-- **Límite de tamaño**: Máximo 1MB para prevenir agotamiento de memoria
-- **Sanitización de rutas**: Previene ataques de traversal de directorios
-- **Verificación de permisos**: Valida permisos antes de leer
-- **Validación de claves**: Solo permite nombres válidos de variables
-- **Análisis seguro**: Maneja entradas malformadas de manera elegante
+- **Default sin sobrescritura**: el `.env` nunca pisa variables existentes del proceso (12-factor); sobrescribir es explícito con `Overload`
+- **Aplicación atómica**: cada archivo se analiza por completo antes de fijar ninguna variable, así un error de formato nunca deja el entorno a medias
+- **Análisis sin efectos secundarios**: `Parse`/`ParseBytes` nunca mutan el entorno global
+- **Límites de recursos**: tope de tamaño de archivo configurable (1 MiB por defecto), aplicado sobre los bytes realmente leídos (seguro para pipes/archivos especiales), sin límite de 64KB por línea
+- **Sin ejecución de código**: nunca se realiza sustitución de comandos (`$(...)`) ni evaluación de shell
+- **Validación de claves**: solo se aceptan nombres válidos de variables (`[A-Za-z_][A-Za-z0-9_]*`)
 
 ### Referencia API
 
 #### Funciones
 
 **Funciones de Carga:**
-- `Load(filenames ...string) error` - Cargar uno o más archivos .env
+- `Load(filenames ...string) error` - Cargar uno o más archivos .env sin sobrescribir variables existentes
+- `Overload(filenames ...string) error` - Cargar archivos dejando que sobrescriban las variables existentes
 - `LoadWithOptions(opts *Options, filenames ...string) error` - Cargar con opciones personalizadas
 - `MustLoad(filenames ...string)` - Cargar archivos o hacer panic
+
+**Análisis (sin efectos secundarios):**
+- `Parse(r io.Reader) (map[string]string, error)` - Analizar a un map sin tocar el entorno
+- `ParseBytes(data []byte) (map[string]string, error)` - Atajo para datos en memoria
 
 **Funciones para Obtener Variables:**
 - `Get(key string) string` - Obtener valor de variable de entorno (alias de os.Getenv)
@@ -338,17 +422,21 @@ if err := dotenv.Load(".env"); err != nil {
 
 ```go
 type Options struct {
-    Override bool  // Sobrescribir variables de entorno existentes
-    Required bool  // El archivo debe existir (retorna error si no)
+    Override    bool  // sobrescribir variables existentes (por defecto false)
+    Required    bool  // el archivo debe existir (retorna error si no)
+    MaxFileSize int64 // máximo de bytes a leer; <= 0 usa DefaultMaxFileSize
 }
+
+const DefaultMaxFileSize = 1 << 20 // 1 MiB
 ```
 
 #### Errores
 
 - `ErrFileNotFound` - El archivo no existe
-- `ErrInvalidFormat` - Formato de línea inválido (falta =)
+- `ErrInvalidFormat` - Formato inválido (falta `=`, comilla sin cerrar o basura tras una comilla)
 - `ErrEmptyKey` - Nombre de clave vacío
 - `ErrPermissionDenied` - Sin permisos para leer el archivo
+- `ErrFileTooLarge` - El archivo excede el tamaño máximo
 
 ---
 
